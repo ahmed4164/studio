@@ -44,14 +44,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Checks for ownership on an existing document.
-     * Prevents updates or deletes on documents that do not exist.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     // ------------------------------------------------------------------------
     // User Data Rules
     // ------------------------------------------------------------------------
@@ -69,8 +61,7 @@ service cloud.firestore {
        * @principle Restricts collection-level reads to the owner of the data tree.
        */
       match /versions/{versionId} {
-        allow list, create: if isOwner(userId);
-        allow get, update, delete: if isExistingOwner(userId);
+        allow read, write: if isOwner(userId);
       }
     }
   }
