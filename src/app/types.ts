@@ -16,6 +16,7 @@ export interface Checklist {
 export type Platform = 'ios' | 'android' | 'general';
 
 export interface ChecklistVersion {
+  id: string; // Firestore document ID
   version: number;
   platform: Platform;
   appVersion: string;
