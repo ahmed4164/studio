@@ -63,14 +63,14 @@ service cloud.firestore {
 
       /**
        * @description A user can manage the checklist versions within their own data tree.
-       * @path /users/{userId}/versions/{versionId}
-       * @allow (create) A signed-in user (auth.uid: 'user123') creating a document at `/users/user123/versions/v_abc`.
+       * @path /users/{userId}/versions
+       * @allow (list) A signed-in user (auth.uid: 'user123') listing documents at `/users/user123/versions`.
        * @deny (list) A signed-in user (auth.uid: 'user456') trying to list documents at `/users/user123/versions`.
-       * @principle Restricts access to a user's own data tree using path-based security.
+       * @principle Restricts collection-level reads to the owner of the data tree.
        */
       match /versions/{versionId} {
-        allow get, list, create: if isOwner(userId);
-        allow update, delete: if isExistingOwner(userId);
+        allow list, create: if isOwner(userId);
+        allow get, update, delete: if isExistingOwner(userId);
       }
     }
   }
