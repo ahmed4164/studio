@@ -8,7 +8,9 @@ export interface ChecklistItem {
 }
 
 export interface Checklist {
-  id: string;
+  id:string;
   title: string;
   items: ChecklistItem[];
+  version?: number;
+  createdAt?: string;
 }
