@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import type { Checklist } from '@/app/types';
+import type { Checklist, ChecklistVersion, Platform } from '@/app/types';
 import { ChecklistCard } from './checklist-card';
 import { AddChecklistDialog } from './add-checklist-dialog';
+import { AddVersionDialog } from './add-version-dialog';
 import { ChecklistToolbar } from './checklist-toolbar';
 
 interface ChecklistContainerProps {
@@ -11,59 +12,84 @@ interface ChecklistContainerProps {
 }
 
 export function ChecklistContainer({ initialChecklists }: ChecklistContainerProps) {
-  const [history, setHistory] = useState<Checklist[][]>([initialChecklists.map(c => ({...c, version: 1, createdAt: new Date().toISOString()}))]);
+  const [history, setHistory] = useState<ChecklistVersion[]>([
+    {
+      version: 1,
+      appVersion: '1.0.0',
+      platform: 'general',
+      createdAt: new Date().toISOString(),
+      checklists: initialChecklists,
+    },
+  ]);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
-  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [isAddChecklistDialogOpen, setAddChecklistDialogOpen] = useState(false);
+  const [isAddVersionDialogOpen, setAddVersionDialogOpen] = useState(false);
 
-  const checklists = history[currentVersionIndex];
-
-  const createNewVersion = (updater: (prevChecklists: Checklist[]) => Checklist[]) => {
-    setHistory(prevHistory => {
-      const currentChecklists = prevHistory[prevHistory.length - 1];
-      const newChecklists = updater(currentChecklists);
-      const newVersion = prevHistory.length + 1;
-      const newChecklistsWithVersion = newChecklists.map(c => 
-        currentChecklists.find(oldC => oldC.id === c.id) ? c : {...c, version: newVersion, createdAt: new Date().toISOString()}
-      );
-      
-      const updatedHistory = [...prevHistory.slice(0, prevHistory.length), newChecklistsWithVersion];
-      setCurrentVersionIndex(updatedHistory.length - 1);
-      return updatedHistory;
-    });
-  };
+  const currentVersion = history[currentVersionIndex];
+  const checklists = currentVersion.checklists;
 
   const handleUpdateChecklist = (updatedChecklist: Checklist) => {
-    createNewVersion(prevChecklists =>
-      prevChecklists.map(c => (c.id === updatedChecklist.id ? updatedChecklist : c))
+    const newHistory = [...history];
+    const newChecklists = newHistory[currentVersionIndex].checklists.map(c =>
+      c.id === updatedChecklist.id ? updatedChecklist : c
     );
+    newHistory[currentVersionIndex] = {
+      ...newHistory[currentVersionIndex],
+      checklists: newChecklists,
+    };
+    setHistory(newHistory);
   };
-  
+
   const handleAddChecklist = (title: string, items: string[]) => {
     const newChecklist: Checklist = {
       id: crypto.randomUUID(),
       title,
-      items: items.map((itemText) => ({
+      items: items.map(itemText => ({
         id: crypto.randomUUID(),
         text: itemText,
         status: 'pending',
       })),
-      version: history.length + 1,
-      createdAt: new Date().toISOString(),
     };
-    
-    createNewVersion(prevChecklists => [...prevChecklists, newChecklist]);
-    setAddDialogOpen(false);
+
+    const newHistory = history.map(version => ({
+      ...version,
+      checklists: [...version.checklists, newChecklist],
+    }));
+
+    setHistory(newHistory);
+    setAddChecklistDialogOpen(false);
+  };
+
+  const handleAddVersion = (appVersion: string, platform: Platform) => {
+    const latestVersion = history[history.length - 1];
+    const newChecklists = latestVersion.checklists.map(checklist => ({
+      ...checklist,
+      items: checklist.items.map(item => ({ ...item, status: 'pending' as const, notes: '' })),
+    }));
+
+    const newVersion: ChecklistVersion = {
+      version: history.length + 1,
+      appVersion,
+      platform,
+      createdAt: new Date().toISOString(),
+      checklists: newChecklists,
+    };
+
+    const newHistory = [...history, newVersion];
+    setHistory(newHistory);
+    setCurrentVersionIndex(newHistory.length - 1);
+    setAddVersionDialogOpen(false);
   };
 
   const handleVersionChange = (index: number) => {
     setCurrentVersionIndex(index);
   };
 
-
   return (
     <div className="container mx-auto">
       <ChecklistToolbar
-        onNewChecklist={() => setAddDialogOpen(true)}
+        onNewChecklist={() => setAddChecklistDialogOpen(true)}
+        onNewVersion={() => setAddVersionDialogOpen(true)}
         history={history}
         currentVersionIndex={currentVersionIndex}
         onVersionChange={handleVersionChange}
@@ -71,7 +97,7 @@ export function ChecklistContainer({ initialChecklists }: ChecklistContainerProp
 
       {checklists.length > 0 ? (
         <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
-          {checklists.map((checklist) => (
+          {checklists.map(checklist => (
             <ChecklistCard
               key={checklist.id}
               checklist={checklist}
@@ -86,9 +112,14 @@ export function ChecklistContainer({ initialChecklists }: ChecklistContainerProp
         </div>
       )}
       <AddChecklistDialog
-        open={isAddDialogOpen}
-        onOpenChange={setAddDialogOpen}
+        open={isAddChecklistDialogOpen}
+        onOpenChange={setAddChecklistDialogOpen}
         onAddChecklist={handleAddChecklist}
+      />
+      <AddVersionDialog
+        open={isAddVersionDialogOpen}
+        onOpenChange={setAddVersionDialogOpen}
+        onAddVersion={handleAddVersion}
       />
     </div>
   );

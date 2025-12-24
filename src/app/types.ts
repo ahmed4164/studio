@@ -11,6 +11,14 @@ export interface Checklist {
   id:string;
   title: string;
   items: ChecklistItem[];
-  version?: number;
-  createdAt?: string;
+}
+
+export type Platform = 'ios' | 'android' | 'general';
+
+export interface ChecklistVersion {
+  version: number;
+  platform: Platform;
+  appVersion: string;
+  createdAt: string;
+  checklists: Checklist[];
 }
