@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Checklist } from '@/app/types';
+import type { Checklist, CheckStatus } from '@/app/types';
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ChecklistItem } from './checklist-item';
 import { ChecklistProgress } from './checklist-progress';
 
-type FilterStatus = 'all' | 'completed' | 'incomplete';
+type FilterStatus = 'all' | 'pending' | 'pass' | 'fail';
 
 interface ChecklistCardProps {
   checklist: Checklist;
@@ -22,9 +22,9 @@ interface ChecklistCardProps {
 export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
   const [filter, setFilter] = useState<FilterStatus>('all');
 
-  const handleItemToggle = (itemId: string) => {
+  const handleItemStatusChange = (itemId: string, status: CheckStatus) => {
     const newItems = checklist.items.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
+      item.id === itemId ? { ...item, status } : item
     );
     onUpdate({ ...checklist, items: newItems });
   };
@@ -37,9 +37,8 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
   };
 
   const filteredItems = checklist.items.filter((item) => {
-    if (filter === 'completed') return item.completed;
-    if (filter === 'incomplete') return !item.completed;
-    return true;
+    if (filter === 'all') return true;
+    return item.status === filter;
   });
 
   return (
@@ -49,7 +48,7 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
         <ChecklistProgress items={checklist.items} />
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
-        <div className="flex items-center gap-2 mb-4 border-b pb-4">
+        <div className="flex items-center gap-2 mb-4 border-b pb-4 flex-wrap">
           <span className="text-sm font-medium text-muted-foreground">Filter:</span>
           <Button
             variant={filter === 'all' ? 'secondary' : 'ghost'}
@@ -59,18 +58,27 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
             All
           </Button>
           <Button
-            variant={filter === 'incomplete' ? 'secondary' : 'ghost'}
+            variant={filter === 'pending' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setFilter('incomplete')}
+            onClick={() => setFilter('pending')}
           >
             Pending
           </Button>
           <Button
-            variant={filter === 'completed' ? 'secondary' : 'ghost'}
+            variant={filter === 'pass' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setFilter('completed')}
+            onClick={() => setFilter('pass')}
+            className="text-green-600 hover:bg-green-100 hover:text-green-700"
           >
-            Completed
+            Passed
+          </Button>
+          <Button
+            variant={filter === 'fail' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setFilter('fail')}
+            className="text-red-600 hover:bg-red-100 hover:text-red-700"
+          >
+            Failed
           </Button>
         </div>
         
@@ -80,7 +88,7 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
               <ChecklistItem
                 key={item.id}
                 item={item}
-                onToggle={() => handleItemToggle(item.id)}
+                onStatusChange={(status) => handleItemStatusChange(item.id, status)}
                 onNotesChange={(notes) => handleNotesChange(item.id, notes)}
               />
             ))}

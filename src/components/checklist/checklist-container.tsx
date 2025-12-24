@@ -28,7 +28,7 @@ export function ChecklistContainer({ initialChecklists }: ChecklistContainerProp
       items: items.map((itemText) => ({
         id: crypto.randomUUID(),
         text: itemText,
-        completed: false,
+        status: 'pending',
       })),
     };
     setChecklists((prev) => [...prev, newChecklist]);
@@ -45,15 +45,22 @@ export function ChecklistContainer({ initialChecklists }: ChecklistContainerProp
         </Button>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
-        {checklists.map((checklist) => (
-          <ChecklistCard
-            key={checklist.id}
-            checklist={checklist}
-            onUpdate={handleUpdateChecklist}
-          />
-        ))}
-      </div>
+      {checklists.length > 0 ? (
+        <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
+          {checklists.map((checklist) => (
+            <ChecklistCard
+              key={checklist.id}
+              checklist={checklist}
+              onUpdate={handleUpdateChecklist}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center text-muted-foreground py-16 rounded-lg bg-card border">
+          <h3 className="text-xl font-semibold">No checklists yet!</h3>
+          <p className="mt-2">Click "New Checklist" to create your first one.</p>
+        </div>
+      )}
       <AddChecklistDialog
         open={isAddDialogOpen}
         onOpenChange={setAddDialogOpen}

@@ -6,7 +6,7 @@ interface ChecklistProgressProps {
 }
 
 export function ChecklistProgress({ items }: ChecklistProgressProps) {
-  const completedItems = items.filter((item) => item.completed).length;
+  const completedItems = items.filter((item) => item.status === 'pass').length;
   const totalItems = items.length;
   const progressPercentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
 

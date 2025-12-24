@@ -1,7 +1,9 @@
+export type CheckStatus = 'pending' | 'pass' | 'fail';
+
 export interface ChecklistItem {
   id: string;
   text: string;
-  completed: boolean;
+  status: CheckStatus;
   notes?: string;
 }
 

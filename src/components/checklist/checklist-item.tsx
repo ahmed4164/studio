@@ -1,20 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Circle, MessageSquarePlus, CornerDownRight } from 'lucide-react';
+import { CheckCircle2, Circle, MessageSquarePlus, CornerDownRight, XCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChecklistItem as ChecklistItemType } from '@/app/types';
+import type { ChecklistItem as ChecklistItemType, CheckStatus } from '@/app/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface ChecklistItemProps {
   item: ChecklistItemType;
-  onToggle: () => void;
+  onStatusChange: (status: CheckStatus) => void;
   onNotesChange: (notes: string) => void;
 }
 
-export function ChecklistItem({ item, onToggle, onNotesChange }: ChecklistItemProps) {
+const statusIcons = {
+  pass: <CheckCircle2 className="text-primary" />,
+  fail: <XCircle className="text-destructive" />,
+  pending: <Circle className="text-muted-foreground" />,
+};
+
+const statusTexts = {
+  pass: 'Passed',
+  fail: 'Failed',
+  pending: 'Pending',
+};
+
+export function ChecklistItem({ item, onStatusChange, onNotesChange }: ChecklistItemProps) {
     const [notes, setNotes] = useState(item.notes || '');
 
     const handleNotesBlur = () => {
@@ -23,22 +36,39 @@ export function ChecklistItem({ item, onToggle, onNotesChange }: ChecklistItemPr
 
   return (
     <Collapsible asChild>
-      <li className="p-3 rounded-lg bg-card/60 hover:bg-card transition-colors group border">
+      <li className={cn(
+          "p-3 rounded-lg bg-card/60 hover:bg-card transition-colors group border",
+          item.status === 'fail' && 'bg-destructive/10 border-destructive/30'
+      )}>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0" onClick={onToggle}>
-            {item.completed ? (
-              <CheckCircle2 className="text-primary transition-transform duration-300 ease-in-out group-hover:scale-110" />
-            ) : (
-              <Circle className="text-muted-foreground transition-transform duration-300 ease-in-out group-hover:scale-110" />
-            )}
-            <span className="sr-only">Toggle item completion</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0">
+                {statusIcons[item.status]}
+                <span className="sr-only">Change status</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => onStatusChange('pass')}>
+                <CheckCircle2 className="mr-2 h-4 w-4 text-primary" />
+                <span>Pass</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange('fail')}>
+                <XCircle className="mr-2 h-4 w-4 text-destructive" />
+                <span>Fail</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange('pending')}>
+                <Circle className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>Set to Pending</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <span
             className={cn(
-              'ml-3 flex-1 text-base font-medium transition-colors cursor-pointer',
-              item.completed ? 'text-muted-foreground line-through' : 'text-foreground'
+              'ml-3 flex-1 text-base font-medium transition-colors',
+              item.status === 'pass' ? 'text-muted-foreground line-through' : 'text-foreground'
             )}
-            onClick={onToggle}
           >
             {item.text}
           </span>
