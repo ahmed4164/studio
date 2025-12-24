@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "Checklist": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Checklist",
+      "type": "object",
+      "description": "Represents a checklist for pre-release testing production readiness.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Checklist entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the checklist."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the checklist's purpose."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the checklist was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the checklist was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChecklistItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChecklistItem",
+      "type": "object",
+      "description": "Represents a single item within a checklist.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ChecklistItem entity."
+        },
+        "checklistId": {
+          "type": "string",
+          "description": "Reference to Checklist. (Relationship: Checklist 1:N ChecklistItem)"
+        },
+        "description": {
+          "type": "string",
+          "description": "The description of the checklist item."
+        },
+        "isComplete": {
+          "type": "boolean",
+          "description": "Indicates whether the checklist item is complete."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes for the checklist item."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the checklist item was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the checklist item was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "checklistId",
+        "description",
+        "isComplete",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DeploymentVersion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DeploymentVersion",
+      "type": "object",
+      "description": "Represents a specific version of the deployed application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DeploymentVersion entity."
+        },
+        "versionNumber": {
+          "type": "string",
+          "description": "The version number of the deployment (e.g., '1.0.0')."
+        },
+        "deploymentDate": {
+          "type": "string",
+          "description": "The date and time when this version was deployed.",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes regarding this deployment version."
+        },
+        "checklistId": {
+          "type": "string",
+          "description": "Reference to Checklist. (Relationship: DeploymentVersion 1:1 Checklist)"
+        }
+      },
+      "required": [
+        "id",
+        "versionNumber",
+        "deploymentDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "user",
+          "schema": {
+            "$ref": "#/backend/entities/user"
+          },
+          "description": "Root collection for user-related data. Serves as an entry point for user-specific collections.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/checklists/{checklistId}",
+        "definition": {
+          "entityName": "Checklist",
+          "schema": {
+            "$ref": "#/backend/entities/Checklist"
+          },
+          "description": "Collection of checklists owned by a specific user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "checklistId",
+              "description": "The unique identifier for the checklist."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/checklists/{checklistId}/items/{checklistItemId}",
+        "definition": {
+          "entityName": "ChecklistItem",
+          "schema": {
+            "$ref": "#/backend/entities/ChecklistItem"
+          },
+          "description": "Collection of checklist items belonging to a specific checklist.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "checklistId",
+              "description": "The unique identifier for the checklist."
+            },
+            {
+              "name": "checklistItemId",
+              "description": "The unique identifier for the checklist item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/deployment_versions/{deploymentVersionId}",
+        "definition": {
+          "entityName": "DeploymentVersion",
+          "schema": {
+            "$ref": "#/backend/entities/DeploymentVersion"
+          },
+          "description": "Collection of deployment versions for the application.",
+          "params": [
+            {
+              "name": "deploymentVersionId",
+              "description": "The unique identifier for the deployment version."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage checklists, checklist items, and deployment versions for the ReadyCheck application. User data is stored in a private path (`/users/{userId}`). Checklists owned by a user are stored under `/users/{userId}/checklists/{checklistId}`. ChecklistItems belonging to a specific checklist are stored under `/users/{userId}/checklists/{checklistId}/items/{checklistItemId}`. Deployment versions are stored under a top-level collection `/deployment_versions/{deploymentVersionId}`. This design leverages path-based ownership for user-specific data, providing a clear and secure way to manage access. The structure supports Authorization Independence because checklist items do not rely on data in the parent checklist document for authorization. Security rules can be written to only allow access to checklist and checklist items for the owning user. The top level DeploymentVersions collection supports the requirement that rules are not filters, since it does not rely on filtering data, but rather serves a different type of document than user-owned checklists and items."
+  }
+}

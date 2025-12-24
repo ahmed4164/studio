@@ -1,0 +1,128 @@
+/**
+ * @file firestore.rules
+ * @description Security rules for the ReadyCheck Firestore database.
+ *
+ * @section Core Philosophy
+ * This ruleset enforces a strict user-ownership model. All user-generated data,
+ * such as checklists and their associated items, is stored in a private,
+ * user-specific data tree under `/users/{userId}`. Access to this data is
+ * strictly limited to the authenticated user who owns it.
+ *
+ * @section Data Structure
+ * - `/users/{userId}`: Root for a user's private data.
+ * - `/users/{userId}/checklists/{checklistId}`: A user's private checklists.
+ * - `/users/{userId}/checklists/{checklistId}/items/{checklistItemId}`: Items within a user's private checklist.
+ * - `/deployment_versions/{deploymentVersionId}`: A top-level collection containing application deployment history, readable by any authenticated user.
+ *
+ * @section Key Security Decisions
+ * - User Isolation: Users can only access data within their own `/users/{userId}` path. They cannot see, list, or modify data belonging to other users.
+ * - User Listing Disabled: The top-level `/users` collection cannot be listed, preventing enumeration of all application users.
+ * - Read-Only Global Data: The `/deployment_versions` collection is readable by any signed-in user to allow tracking, but all write operations are disabled by default as a security precaution until an administrative role or ownership model is defined.
+ *
+ * @section Denormalization for Authorization
+ * The data structure leverages path-based security, which is the most performant approach. The `{userId}` wildcard in the path is used directly for authorization, eliminating the need for slow and costly `get()` calls to other documents to verify ownership.
+ *
+ * @section Structural Segregation
+ * This ruleset uses structural segregation to cleanly separate private user data from globally accessible data. User-specific checklists are nested under `/users/{userId}`, while public-read `deployment_versions` exist in their own top-level collection. This prevents accidental data leakage and simplifies list queries.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the provided userId.
+     * Use for path-based ownership checks.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document.
+     * Prevents updates or deletes on documents that do not exist.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // ------------------------------------------------------------------------
+    // User Data Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Users can create, read, update, and delete their own user document.
+     * @path /users/{userId}
+     * @allow (create) A signed-in user (auth.uid: 'user123') creating their document at `/users/user123`.
+     * @deny (get) A signed-in user (auth.uid: 'user456') trying to read `/users/user123`.
+     * @principle Enforces self-creation and strict data ownership. User listing is disallowed.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description A user can manage the checklists within their own data tree.
+       * @path /users/{userId}/checklists/{checklistId}
+       * @allow (create) A signed-in user (auth.uid: 'user123') creating a document at `/users/user123/checklists/cl_abc`.
+       * @deny (list) A signed-in user (auth.uid: 'user456') trying to list documents at `/users/user123/checklists`.
+       * @principle Restricts access to a user's own data tree using path-based security.
+       */
+      match /checklists/{checklistId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description A user can manage the items within their own checklists.
+         * @path /users/{userId}/checklists/{checklistId}/items/{checklistItemId}
+         * @allow (create) User 'user123' creating an item under their own checklist, ensuring `checklistId` consistency.
+         * @deny (update) User 'user456' trying to update an item under another user's checklist.
+         * @principle Enforces ownership via path and validates relational integrity on writes.
+         */
+        match /items/{checklistItemId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && request.resource.data.checklistId == checklistId;
+          allow update: if isExistingOwner(userId) && request.resource.data.checklistId == resource.data.checklistId;
+          allow delete: if isExistingOwner(userId);
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // Global Data Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Allows any authenticated user to read deployment versions, but blocks all writes.
+     * @path /deployment_versions/{deploymentVersionId}
+     * @allow (get) Any signed-in user (auth.uid: 'user123') reading `/deployment_versions/v1`.
+     * @deny (create) Any signed-in user trying to create a new deployment version document.
+     * @principle Provides public read access for authenticated users, but secures writes by default.
+     */
+    match /deployment_versions/{deploymentVersionId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      // CRITICAL: Cannot implement owner-only writes. The 'DeploymentVersion' entity is missing an 'ownerId' or 'creatorId' field.
+      allow create: if false; // TODO: Add owner validation or admin role check once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation or admin role check once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation or admin role check once the schema is updated with an ownership field.
+    }
+  }
+}
