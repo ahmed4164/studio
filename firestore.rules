@@ -54,14 +54,17 @@ service cloud.firestore {
       allow read, write: if false;
 
       /**
-       * @description A user can manage the checklist versions within their own data tree.
-       * @path /users/{userId}/versions
-       * @allow (list) A signed-in user (auth.uid: 'user123') listing documents at `/users/user123/versions`.
-       * @deny (list) A signed-in user (auth.uid: 'user456') trying to list documents at `/users/user123/versions`.
-       * @principle Restricts collection-level reads to the owner of the data tree.
+       * @description Checklist versions access rules.
+       * - Personal path (/users/personal/versions): Accessible by any authenticated user (including anonymous)
+       *   This allows cross-device sync for personal use.
+       * - Other paths (/users/{userId}/versions): Ownership-based access only
        */
       match /versions/{versionId} {
-        allow read, write: if isOwner(userId);
+        // Personal data path - any authenticated user can access (for cross-device sync)
+        // This allows both individual document reads and collection listing
+        allow read, write: if isSignedIn() && userId == 'personal';
+        // Other user paths - ownership required  
+        allow read, write: if userId != 'personal' && isOwner(userId);
       }
     }
   }
