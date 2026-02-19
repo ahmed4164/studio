@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Checklist, ChecklistVersion, Platform } from '@/app/types';
 import { ChecklistCard } from './checklist-card';
 import { AddChecklistDialog } from './add-checklist-dialog';
@@ -23,9 +23,9 @@ export function ChecklistContainer() {
   const firestore = useFirestore();
 
   const versionsCollectionRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return collection(firestore, `users/${user.uid}/versions`);
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return collection(firestore, 'users/personal/versions');
+  }, [firestore]);
 
   const versionsQuery = useMemoFirebase(() => {
     if (!versionsCollectionRef) return null;
@@ -38,6 +38,30 @@ export function ChecklistContainer() {
   const [isAddChecklistDialogOpen, setAddChecklistDialogOpen] = useState(false);
   const [isAddVersionDialogOpen, setAddVersionDialogOpen] = useState(false);
   
+  // Seeding logic for global data
+  useEffect(() => {
+    if (!isLoadingHistory && history !== null && history.length === 0 && firestore && versionsCollectionRef) {
+      const seedInitialData = async () => {
+         try {
+             // Create initial version based on static data
+             const newVersion: Omit<ChecklistVersion, 'id'> = {
+                version: 1,
+                appVersion: '1.0.0', 
+                platform: 'general' as const, 
+                createdAt: new Date().toISOString(),
+                checklists: initialChecklists,
+             };
+             // Use addDocumentNonBlocking to create it
+             await addDocumentNonBlocking(versionsCollectionRef, newVersion);
+             console.log("Seeded initial global data");
+         } catch (e) {
+             console.error("Failed to seed global data", e);
+         }
+      };
+      seedInitialData();
+    }
+  }, [isLoadingHistory, history, firestore, versionsCollectionRef]);
+  
   const currentVersion = useMemo(() => {
     if (!history) return null;
     if (currentVersionId) {
@@ -49,7 +73,7 @@ export function ChecklistContainer() {
   const checklists = currentVersion?.checklists || [];
 
   const handleUpdateChecklist = (updatedChecklist: Checklist) => {
-    if (!currentVersion || !user || !firestore) return;
+    if (!currentVersion || !firestore) return;
 
     const newChecklists = currentVersion.checklists.map(c =>
       c.id === updatedChecklist.id ? updatedChecklist : c
@@ -59,12 +83,13 @@ export function ChecklistContainer() {
       checklists: newChecklists,
     };
     
-    const versionDocRef = doc(firestore, `users/${user.uid}/versions/${currentVersion.id}`);
+    // Use shared public path
+    const versionDocRef = doc(firestore, `users/personal/versions/${currentVersion.id}`);
     setDocumentNonBlocking(versionDocRef, updatedVersion, { merge: true });
   };
 
   const handleAddChecklist = (title: string, items: string[]) => {
-    if (!user || !firestore || !history) return;
+    if (!firestore || !history) return;
     
     const newChecklist: Checklist = {
       id: crypto.randomUUID(),
@@ -78,7 +103,8 @@ export function ChecklistContainer() {
 
     history.forEach(version => {
       const updatedChecklists = [...version.checklists, newChecklist];
-      const versionDocRef = doc(firestore, `users/${user.uid}/versions/${version.id}`);
+      // Use shared public path
+      const versionDocRef = doc(firestore, `users/personal/versions/${version.id}`);
       setDocumentNonBlocking(versionDocRef, { checklists: updatedChecklists }, { merge: true });
     });
 
@@ -112,6 +138,20 @@ export function ChecklistContainer() {
     setCurrentVersionId(versionId);
   };
   
+  const handleDeleteChecklist = (checklistId: string) => {
+    if (!currentVersion || !firestore) return;
+
+    const newChecklists = currentVersion.checklists.filter(c => c.id !== checklistId);
+
+    const updatedVersion: Partial<ChecklistVersion> = {
+      checklists: newChecklists,
+    };
+    
+    // Use shared public path
+    const versionDocRef = doc(firestore, `users/personal/versions/${currentVersion.id}`);
+    setDocumentNonBlocking(versionDocRef, updatedVersion, { merge: true });
+  };
+
   if (isLoadingHistory) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -137,13 +177,14 @@ export function ChecklistContainer() {
               key={checklist.id}
               checklist={checklist}
               onUpdate={handleUpdateChecklist}
+              onDelete={handleDeleteChecklist}
             />
           ))}
         </div>
       ) : (
         <div className="text-center text-muted-foreground py-16 rounded-lg bg-card border">
           <h3 className="text-xl font-semibold">No checklists yet!</h3>
-          <p className="mt-2">Click "New Checklist" or "New Version" to get started.</p>
+          <p className="mt-2">Welcome! Initializing shared data...</p>
         </div>
       )}
       <AddChecklistDialog

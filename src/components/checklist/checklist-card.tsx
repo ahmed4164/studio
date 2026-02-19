@@ -14,13 +14,28 @@ import { ChecklistProgress } from './checklist-progress';
 
 type FilterStatus = 'all' | 'pending' | 'pass' | 'fail';
 
+import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 interface ChecklistCardProps {
   checklist: Checklist;
   onUpdate: (checklist: Checklist) => void;
+  onDelete: (checklistId: string) => void;
 }
 
-export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
+export function ChecklistCard({ checklist, onUpdate, onDelete }: ChecklistCardProps) {
   const [filter, setFilter] = useState<FilterStatus>('all');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleItemStatusChange = (itemId: string, status: CheckStatus) => {
     const newItems = checklist.items.map((item) =>
@@ -42,9 +57,20 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
   });
 
   return (
+    <>
     <Card className="flex flex-col shadow-md hover:shadow-lg transition-shadow">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">{checklist.title}</CardTitle>
+        <div className="flex justify-between items-start">
+            <CardTitle className="font-headline text-2xl">{checklist.title}</CardTitle>
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => setIsDeleteDialogOpen(true)}
+            >
+                <Trash2 className="h-5 w-5" />
+            </Button>
+        </div>
         <ChecklistProgress items={checklist.items} />
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
@@ -100,5 +126,24 @@ export function ChecklistCard({ checklist, onUpdate }: ChecklistCardProps) {
         )}
       </CardContent>
     </Card>
+
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the checklist
+              "{checklist.title}" and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onDelete(checklist.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

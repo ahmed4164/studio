@@ -67,5 +67,12 @@ service cloud.firestore {
         allow read, write: if userId != 'personal' && isOwner(userId);
       }
     }
-  }
-}
+
+    // ------------------------------------------------------------------------
+    // Global Data Rules
+    // ------------------------------------------------------------------------
+    
+    // Allow everyone to read and write to the global versions collection
+    match /versions/{versionId} {
+      allow read, write: if true;
+    }
